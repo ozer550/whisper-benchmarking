@@ -1,2 +1,4 @@
 /video
 _audio.wav
+/chunked
+__pycache__

@@ -6,6 +6,7 @@ from colorama import init, Fore
 import os
 from tabulate import tabulate
 import whisperx
+from parallelization import transcribe_audio
 
 init()
 
@@ -37,11 +38,19 @@ def transcribe_whisper(model, audio_path):
 
 def transcribe_faster_whisper(model, audio_path):
     start_time = time.time()
-    segments, info = model.transcribe(audio_path, beam_size=5)
+    segments, info = model.transcribe(audio_path, beam_size=1)
     elapsed_time = time.time() - start_time
     texts = [segment.text for segment in segments]
     full_text = " ".join(texts)
     return full_text, info, elapsed_time
+
+def transcribe_faster_whisper_chunked(audio_path, model, max_processes=4):
+    silence_threshold = "-20dB"
+    silence_duration = 2  # seconds
+    start_time = time.time()
+    full_text = transcribe_audio(audio_path, max_processes, silence_threshold, silence_duration, model)
+    elapsed_time = time.time() - start_time
+    return full_text, elapsed_time
 
 def transcribe_whisperx(model, audio_path):
     start_time = time.time()
@@ -88,9 +97,18 @@ for video_path in video_paths:
     whisperx_result, whisperx_time = transcribe_whisperx(whisperx_model, audio_path)
     print("Whisper X transcription output:", whisperx_result)
     print(Fore.BLUE + f"Whisper X transcription time: {whisperx_time:.2f} seconds" + Fore.RESET)
-    
+     
+    # Transcribe with Chunked Faster Whisper
+    print("++++++++++++++++++++++++++++++++")
+    print("Transcribing with Chunked Faster Whisper...")
+    chunked_whisper_result, chunked_whisper_time = transcribe_faster_whisper_chunked(audio_path, faster_whisper_model)
+    print("Chunked Faster Whisper transcription output:", chunked_whisper_result)
+    print(Fore.CYAN + f"Chunked Faster Whisper transcription time: {chunked_whisper_time:.2f} seconds" + Fore.RESET)
+    print()
+
     video_file_name = os.path.basename(video_path)
     video_duration_fmt = f"{video_duration:.2f} sec"
-    results.append([video_file_name, video_duration_fmt, f"{whisper_time:.2f} seconds", f"{faster_whisper_time:.2f} seconds", f"{whisperx_time:.2f} seconds"])
+    results.append([video_file_name, video_duration_fmt, f"{whisper_time:.2f} seconds", f"{faster_whisper_time:.2f} seconds", f"{whisperx_time:.2f} seconds", f"{chunked_whisper_time:.2f} seconds"])
 
-print(tabulate(results, headers=["Video File", "Duration", "Whisper Time", "Faster Whisper Time", "Whisper X Time"]))
+
+print(tabulate(results, headers=["Video File", "Duration", "Whisper Time", "Faster Whisper Time", "Whisper X Time", "Chunked Faster Whisper Time"]))
