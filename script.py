@@ -15,11 +15,12 @@ init()
 directory = './video'
 video_paths = [os.path.join(directory, file) for file in os.listdir(directory) if file.endswith(('.mp4', '.MP4'))]
 
-whisper_model = whisper.load_model("medium", device="cpu")
-faster_whisper_model = WhisperModel("medium", device="cpu", compute_type="float32")
-whisperx_model = whisperx.load_model("medium", device="cpu", compute_type="float32")
+whisper_model = whisper.load_model("base", device="cpu")
+faster_whisper_model = WhisperModel("base", device="cpu", compute_type="float32")
+whisperx_model = whisperx.load_model("base", device="cpu", compute_type="float32")
 
 core_count_os = os.cpu_count()
+
 
 def extract_audio(video_path):
     with VideoFileClip(video_path) as video:
@@ -40,12 +41,13 @@ def transcribe_whisper(model, audio_path):
     cpu_used = process.cpu_percent(None)/core_count_os
     memory_after = process.memory_info().rss / (1024 ** 2)
     memory_used = memory_after - memory_before 
-    
+    memory_percent_usage = psutil.virtual_memory().percent
+     
     print()
     print("*******************************")
-    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))      
+    print(tabulate([[cpu_used, memory_used, memory_percent_usage]], headers=["AVG CPU USAGE", "MEMORY SPIKE IN MB", "MEMORY USAGE"]))     
     print("*******************************")
-    print()
+    print() 
     
     if isinstance(result, dict) and 'text' in result:
         full_text = result['text']
@@ -64,13 +66,15 @@ def transcribe_faster_whisper(model, audio_path):
     segments, info = model.transcribe(audio_path, beam_size=1) 
     elapsed_time = time.time() - start_time 
     
+     
     cpu_used = process.cpu_percent(None)/core_count_os
     memory_after = process.memory_info().rss / (1024 ** 2)
     memory_used = memory_after - memory_before
+    memory_percent_usage = psutil.virtual_memory().percent
      
     print()
     print("*******************************")
-    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))     
+    print(tabulate([[cpu_used, memory_used, memory_percent_usage]], headers=["AVG CPU USAGE", "MEMORY SPIKE IN MB", "MEMORY USAGE"]))     
     print("*******************************")
     print()
     
@@ -92,13 +96,14 @@ def transcribe_faster_whisper_chunked(audio_path, model, max_processes=4):
      
     cpu_used = process.cpu_percent(None)/core_count_os
     memory_after = process.memory_info().rss / (1024 ** 2)
-    memory_used = memory_after - memory_before 
-    
-    print() 
-    print("*******************************")
-    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))    
-    print("*******************************")
+    memory_used = memory_after - memory_before
+    memory_percent_usage = psutil.virtual_memory().percent
+     
     print()
+    print("*******************************")
+    print(tabulate([[cpu_used, memory_used, memory_percent_usage]], headers=["AVG CPU USAGE", "MEMORY SPIKE IN MB", "MEMORY USAGE"]))     
+    print("*******************************")
+    print() 
     
     return full_text, elapsed_time
 
@@ -116,10 +121,11 @@ def transcribe_whisperx(model, audio_path):
     cpu_used = process.cpu_percent(None)/core_count_os
     memory_after = process.memory_info().rss / (1024 ** 2)
     memory_used = memory_after - memory_before 
-    
-    print() 
+    memory_percent_usage = psutil.virtual_memory().percent
+     
+    print()
     print("*******************************")
-    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))    
+    print(tabulate([[cpu_used, memory_used, memory_percent_usage]], headers=["AVG CPU USAGE", "MEMORY SPIKE IN MB", "MEMORY USAGE"]))     
     print("*******************************")
     print() 
     
