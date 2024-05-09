@@ -7,16 +7,19 @@ import os
 from tabulate import tabulate
 import whisperx
 from parallelization import transcribe_audio
+import psutil
+
 
 init()
 
 directory = './video'
 video_paths = [os.path.join(directory, file) for file in os.listdir(directory) if file.endswith(('.mp4', '.MP4'))]
 
-whisper_model = whisper.load_model("base", device="cpu")
-faster_whisper_model = WhisperModel("base", device="cpu", compute_type="float32")
-whisperx_model = whisperx.load_model("base", device="cpu", compute_type="float32")
+whisper_model = whisper.load_model("medium", device="cpu")
+faster_whisper_model = WhisperModel("medium", device="cpu", compute_type="float32")
+whisperx_model = whisperx.load_model("medium", device="cpu", compute_type="float32")
 
+core_count_os = os.cpu_count()
 
 def extract_audio(video_path):
     with VideoFileClip(video_path) as video:
@@ -27,19 +30,50 @@ def extract_audio(video_path):
     return audio_path, video_duration
 
 def transcribe_whisper(model, audio_path):
+    process = psutil.Process() 
+    
+    process.cpu_percent(None)
+    memory_before = process.memory_info().rss / (1024 ** 2)
     start_time = time.time()
-    result = model.transcribe(audio_path, beam_size=5)
-    elapsed_time = time.time() - start_time
+    result = model.transcribe(audio_path, beam_size=1)
+    elapsed_time = time.time() - start_time 
+    cpu_used = process.cpu_percent(None)/core_count_os
+    memory_after = process.memory_info().rss / (1024 ** 2)
+    memory_used = memory_after - memory_before 
+    
+    print()
+    print("*******************************")
+    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))      
+    print("*******************************")
+    print()
+    
     if isinstance(result, dict) and 'text' in result:
         full_text = result['text']
     else:
         full_text = "No text extracted."
+        
     return full_text, elapsed_time
 
 def transcribe_faster_whisper(model, audio_path):
-    start_time = time.time()
-    segments, info = model.transcribe(audio_path, beam_size=1)
-    elapsed_time = time.time() - start_time
+    process = psutil.Process() 
+    
+    process.cpu_percent(None)
+    memory_before = process.memory_info().rss / (1024 ** 2)
+    
+    start_time = time.time() 
+    segments, info = model.transcribe(audio_path, beam_size=1) 
+    elapsed_time = time.time() - start_time 
+    
+    cpu_used = process.cpu_percent(None)/core_count_os
+    memory_after = process.memory_info().rss / (1024 ** 2)
+    memory_used = memory_after - memory_before
+     
+    print()
+    print("*******************************")
+    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))     
+    print("*******************************")
+    print()
+    
     texts = [segment.text for segment in segments]
     full_text = " ".join(texts)
     return full_text, info, elapsed_time
@@ -47,16 +81,48 @@ def transcribe_faster_whisper(model, audio_path):
 def transcribe_faster_whisper_chunked(audio_path, model, max_processes=4):
     silence_threshold = "-20dB"
     silence_duration = 2  # seconds
+    process = psutil.Process() 
+    
+    process.cpu_percent(None)
+    memory_before = process.memory_info().rss / (1024 ** 2)
+    
     start_time = time.time()
     full_text = transcribe_audio(audio_path, max_processes, silence_threshold, silence_duration, model)
     elapsed_time = time.time() - start_time
+     
+    cpu_used = process.cpu_percent(None)/core_count_os
+    memory_after = process.memory_info().rss / (1024 ** 2)
+    memory_used = memory_after - memory_before 
+    
+    print() 
+    print("*******************************")
+    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))    
+    print("*******************************")
+    print()
+    
     return full_text, elapsed_time
 
 def transcribe_whisperx(model, audio_path):
-    start_time = time.time()
     audio = whisperx.load_audio(audio_path)
+    
+    process = psutil.Process() 
+    process.cpu_percent(None)
+    memory_before = process.memory_info().rss / (1024 ** 2)
+    
+    start_time = time.time() 
     result = model.transcribe(audio, batch_size=1)  
     elapsed_time = time.time() - start_time
+     
+    cpu_used = process.cpu_percent(None)/core_count_os
+    memory_after = process.memory_info().rss / (1024 ** 2)
+    memory_used = memory_after - memory_before 
+    
+    print() 
+    print("*******************************")
+    print(tabulate([[cpu_used, memory_used]], headers=["AVG CPU USAGE", "MEMORY USAGE IN MB"]))    
+    print("*******************************")
+    print() 
+    
     segments = result['segments']
     full_text = " ".join([seg['text'] for seg in segments])
     return full_text, elapsed_time
@@ -70,6 +136,7 @@ for video_path in video_paths:
     audio_path, video_duration = extract_audio(video_path)
 
     # Transcribe with Whisper
+    print()
     print("*******************************")
     print("Transcribing with Whisper...")
     print()
@@ -78,9 +145,9 @@ for video_path in video_paths:
     print()
     print(Fore.YELLOW + f"Whisper transcription time: {whisper_time:.2f} seconds" + Fore.RESET)
     print()
-    print()
 
     # Transcribe with Faster Whisper
+    print()
     print("--------------------------------")
     print("Transcribing with Faster Whisper...")
     print()
@@ -89,16 +156,18 @@ for video_path in video_paths:
     print()
     print(Fore.GREEN + f"Faster Whisper transcription time: {faster_whisper_time:.2f} seconds" + Fore.RESET)
     print()
-    print()
     
     # Transcribe with Whisper X
+    print()
     print("================================")
     print("Transcribing with Whisper X...")
     whisperx_result, whisperx_time = transcribe_whisperx(whisperx_model, audio_path)
     print("Whisper X transcription output:", whisperx_result)
     print(Fore.BLUE + f"Whisper X transcription time: {whisperx_time:.2f} seconds" + Fore.RESET)
-     
+    print()
+
     # Transcribe with Chunked Faster Whisper
+    print()
     print("++++++++++++++++++++++++++++++++")
     print("Transcribing with Chunked Faster Whisper...")
     chunked_whisper_result, chunked_whisper_time = transcribe_faster_whisper_chunked(audio_path, faster_whisper_model)
