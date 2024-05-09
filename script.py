@@ -15,9 +15,9 @@ init()
 directory = './video'
 video_paths = [os.path.join(directory, file) for file in os.listdir(directory) if file.endswith(('.mp4', '.MP4'))]
 
-whisper_model = whisper.load_model("base", device="cpu")
-faster_whisper_model = WhisperModel("base", device="cpu", compute_type="float32")
-whisperx_model = whisperx.load_model("base", device="cpu", compute_type="float32")
+whisper_model = whisper.load_model("medium", device="cpu")
+faster_whisper_model = WhisperModel("medium", device="cpu", compute_type="float32")
+whisperx_model = whisperx.load_model("medium", device="cpu", compute_type="float32")
 
 core_count_os = os.cpu_count()
 
